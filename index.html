@@ -51,7 +51,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 #lvsel{color:var(--c);font-size:19px;min-width:150px}
 input[type=range]{width:140px;accent-color:var(--a)}
 #fs{right:58px!important;display:block!important;opacity:.85}
-#ps,#fs{position:absolute;top:12px;right:10px;z-index:4;width:40px;height:40px;border-radius:50%;border:2px solid var(--c);background:rgba(7,5,20,.65);color:var(--c);font-size:17px;display:none;touch-action:manipulation;cursor:pointer}
+#ct{right:106px!important;display:block!important}
+body.noctl #ctl{display:none}
+#empi{position:absolute;top:22px;left:12px;width:150px;height:22px;border-radius:12px;border:1px solid var(--p);background:rgba(7,5,20,.6);overflow:hidden;z-index:3;pointer-events:none;display:none;direction:ltr}
+body.noctl #empi{display:block}body.noctl #pbar-pwr{top:50px}
+#empi i{position:absolute;inset:0;width:0%;background:linear-gradient(90deg,var(--p),var(--g));transition:width .15s}
+#empi b{position:relative;display:block;text-align:center;font-size:12px;line-height:22px;color:#fff;white-space:nowrap}
+#empi.ready{border-color:var(--g);animation:pulseEmp .9s infinite alternate}
+#ps,#fs,#ct{position:absolute;top:12px;right:10px;z-index:4;width:40px;height:40px;border-radius:50%;border:2px solid var(--c);background:rgba(7,5,20,.65);color:var(--c);font-size:17px;display:none;touch-action:manipulation;cursor:pointer}
 .card-box{background:rgba(255,255,255,.04);border:1px solid rgba(34,230,255,.22);border-radius:16px;padding:10px 14px;width:100%;max-width:390px;display:flex;flex-direction:column;gap:7px;margin-top:4px}
 #toast{position:fixed;top:14px;left:50%;transform:translateX(-50%) translateY(-80px);background:rgba(16,10,38,.95);border:2px solid var(--a);color:#fff;padding:10px 20px;border-radius:99px;font-weight:700;font-size:14px;z-index:30;box-shadow:0 0 24px rgba(34,230,255,.5);transition:transform .28s cubic-bezier(.2,.9,.3,1);pointer-events:none;text-align:center;max-width:90vw}
 #toast.show{transform:translateX(-50%) translateY(0)}
@@ -74,6 +81,8 @@ input[type=range]{width:140px;accent-color:var(--a)}
     <div id="pbar-pwr"></div>
     <button id="ps" aria-label="إيقاف">⏸</button>
     <button id="fs" aria-label="ملء الشاشة">⛶</button>
+    <button id="ct" aria-label="إظهار أو إخفاء الأزرار">🎛️</button>
+    <div id="empi"><i></i><b>💥 0%</b></div>
     <div id="ov">
       <h1 id="tt">نيون رَش</h1>
       <p id="ds">اضغط مطوّلاً على الأزرار أو اسحب بإيدك على الشاشة<br>اجمع الجواهر 💎 واشحن موجة النيون 💥 لتدمير العقبات<br>🛡️ درع · 🧲 مغناطيس · ⚡ ليزر · ⏱️ إبطاء · ♥ حياة</p>
@@ -91,6 +100,7 @@ input[type=range]{width:140px;accent-color:var(--a)}
         <div class="rw"><button class="sm" id="d1">◀</button><b id="dn" style="min-width:135px;color:var(--b)"></b><button class="sm" id="d2">▶</button></div>
         <div class="rw"><span style="font-size:14px">حساسية التحكم</span><input type="range" id="sn" min="0.5" max="2" step="0.1"><b id="sv" style="min-width:28px"></b></div>
         <div class="rw"><button class="sm" id="tdg"></button><button class="sm" id="gy"></button></div>
+        <div class="rw"><button class="sm" id="ctg"></button></div>
         <div class="rw" id="gy-row"><span style="font-size:14px">حساسية الجيرو</span><input type="range" id="gs" min="0.5" max="3" step="0.1"><b id="gv" style="min-width:28px"></b></div>
       </div>
 
@@ -150,7 +160,7 @@ function notify(msg){
 
 // حالة اللعبة والبيانات المحفوظة (متوافقة تماماً مع neonrush2 + IndexedDB احتياطي)
 const SAVE_KEY='neonrush2';
-let S={lvl:1,max:1,coins:0,ship:0,own:[0],col:0,best:0,sens:1,df:1,gyro:false,gs:1,touchDrag:true,th:{g:0,h:0,b:0},tOwn:['g0','h0','b0'],lang:'ar'};
+let S={lvl:1,max:1,coins:0,ship:0,own:[0],col:0,best:0,sens:1,df:1,gyro:false,gs:1,touchDrag:true,hideCtl:false,th:{g:0,h:0,b:0},tOwn:['g0','h0','b0'],lang:'ar'};
 
 function applySaveObj(obj){
   if(!obj||typeof obj!=='object')return false;
@@ -166,6 +176,7 @@ function applySaveObj(obj){
   if(typeof obj.gyro==='boolean')S.gyro=obj.gyro;
   if(typeof obj.gs==='number')S.gs=obj.gs;
   if(typeof obj.touchDrag==='boolean')S.touchDrag=obj.touchDrag;
+  if(typeof obj.hideCtl==='boolean')S.hideCtl=obj.hideCtl;
   if(obj.th&&typeof obj.th==='object')S.th=Object.assign({g:0,h:0,b:0},obj.th);
   if(Array.isArray(obj.tOwn))S.tOwn=Array.from(new Set(['g0','h0','b0',...obj.tOwn]));
   if(['ar','en','fr'].includes(obj.lang))S.lang=obj.lang;
@@ -221,7 +232,11 @@ const tv={g:S.th.g,h:S.th.h,b:S.th.b};
 
 function poly(c,n,r1,r2){for(let k=0;k<n*2;k++){const r=k%2?r2:r1,a=k*Math.PI/n-Math.PI/2;c.lineTo(Math.cos(a)*r,Math.sin(a)*r)}c.closePath()}
 
-const DI=[['اضغط مطوّلاً على الأزرار أو اسحب بإيدك على الشاشة','Hold buttons or drag your finger on the screen',"Maintenez les boutons ou glissez le doigt sur l'écran"],
+const DI=[['جاهز — اضغط مرتين','Ready — double tap','Prête — double appui'],
+  ['الأزرار: مخفية','Buttons: Hidden','Boutons : masqués'],
+  ['الأزرار: ظاهرة ✔','Buttons: Visible ✔','Boutons : visibles ✔'],
+  ['تم تفعيل السحب باللمس عشان تقدر تتحكم','Touch drag enabled so you can still steer','Glissement tactile activé pour piloter'],
+  ['اضغط مطوّلاً على الأزرار أو اسحب بإيدك على الشاشة','Hold buttons or drag your finger on the screen',"Maintenez les boutons ou glissez le doigt sur l'écran"],
   ['اجمع الجواهر 💎 واشحن موجة النيون 💥 لتدمير العقبات','Collect gems 💎 & charge Neon EMP 💥 to blast obstacles',"Collectez les gemmes 💎 et chargez l'IEM Neon 💥 pour détruire les obstacles"],
   ['🛡️ درع · 🧲 مغناطيس · ⚡ ليزر · ⏱️ إبطاء · ♥ حياة','🛡️ Shield · 🧲 Magnet · ⚡ Laser · ⏱️ Slow-Mo · ♥ Life',"🛡️ Bouclier · 🧲 Aimant · ⚡ Laser · ⏱️ Ralenti · ♥ Vie"],
   ['💾 حفظ واسترجاع التقدم (حماية البروجرس)','💾 Backup & Restore Progress',"💾 Sauvegarde et restauration"],
@@ -369,7 +384,7 @@ let lastTap=0;
 cv.addEventListener('pointerdown',e=>{
   if(st!=='play')return;
   const now=performance.now();
-  if(now-lastTap<280&&emp>=100){triggerEmp();lastTap=0;return}
+  if(now-lastTap<350&&emp>=100){triggerEmp();lastTap=0;return}
   lastTap=now;
   if(!S.touchDrag)return;
   dragId=e.pointerId;dragX=e.clientX;dragY=e.clientY;
@@ -566,6 +581,7 @@ function menu(){
   $('lg').textContent='🌐 '+({ar:'العربية',en:'English',fr:'Français'})[S.lang];
   $('lg').style.display=st==='pause'?'none':'';
   $('dn').textContent=DF[S.df].n+' '+'★'.repeat(S.df+1);
+  $('ctg').textContent=S.hideCtl?'الأزرار: مخفية':'الأزرار: ظاهرة ✔';
   $('tdg').textContent=S.touchDrag?'السحب باللمس: شغّال ✔':'السحب باللمس: مقفول';
   $('gy').textContent='🎮 الجيروسكوب: '+(S.gyro?(gok?'شغّال ✔':'شغّال… مستني الحساسات'):'مقفول');
   $('rs').style.display=st==='pause'?'':'none';
@@ -583,6 +599,11 @@ $('ln').onclick=()=>{S.lvl=Math.min(S.max,S.lvl+1);save();menu()};
 $('s1').onclick=()=>{pv=(pv+5)%6;menu()};
 $('s2').onclick=()=>{pv=(pv+1)%6;menu()};
 $('tdg').onclick=()=>{S.touchDrag=!S.touchDrag;save();menu()};
+let lastEp=-1;
+function empInd(ep){const e=$('empi');e.firstElementChild.style.width=ep+'%';e.lastElementChild.textContent=ep>=100?'💥 جاهز — اضغط مرتين':'💥 '+ep+'%';e.classList.toggle('ready',ep>=100)}
+function applyCtl(){document.body.classList.toggle('noctl',!!S.hideCtl);$('ct').style.opacity=S.hideCtl?.5:.9;setTimeout(resize,30)}
+function togCtl(){S.hideCtl=!S.hideCtl;if(S.hideCtl&&!S.touchDrag&&!S.gyro){S.touchDrag=true;notify('تم تفعيل السحب باللمس عشان تقدر تتحكم')}save();applyCtl();menu()}
+$('ctg').onclick=togCtl;$('ct').onclick=togCtl;applyCtl();
 $('emp').onclick=()=>triggerEmp();
 
 $('fs').onclick=()=>{
@@ -1096,6 +1117,7 @@ let last=performance.now();
 function loop(ts){
   const dt=Math.min(.033,(ts-last)/1000||0);fpsA+=(Math.min(.1,(ts-last)/1000||0)*1000-fpsA)*.04;last=ts;if(fpsA>27&&lowQ<2&&st==='play'){lowQ++;QF=lowQ===1?.25:0;fpsA=16;notify('تم تخفيف التأثيرات لتحسين الأداء')}
   if(st==='play')update(dt);
+  {const ep=Math.min(100,Math.floor(emp||0));if(ep!==lastEp){lastEp=ep;empInd(ep)}}
   draw(dt);
   requestAnimationFrame(loop);
 }
